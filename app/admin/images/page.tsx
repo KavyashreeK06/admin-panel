@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 interface Img {
@@ -30,8 +30,6 @@ export default function ImagesPage() {
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
   const [search, setSearch] = useState("");
   const [uploading, setUploading] = useState(false);
-  const cRef = useRef<HTMLInputElement>(null);
-  const eRef = useRef<HTMLInputElement>(null);
 
   const msg = (m: string, ok = true) => { setToast({ msg: m, ok }); setTimeout(() => setToast(null), 3500); };
 
@@ -80,7 +78,7 @@ export default function ImagesPage() {
     msg("Deleted"); setDelId(null); load();
   };
 
-  const Fields = ({ f, set, ref: r }: { f: typeof blank; set: (x: typeof blank) => void; ref: React.RefObject<HTMLInputElement | null> }) => (
+  const FormFields = ({ f, set, isCreate }: { f: typeof blank; set: (x: typeof blank) => void; isCreate: boolean }) => (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <div>
         <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "var(--text-muted)", marginBottom: 6 }}>URL *</div>
@@ -88,10 +86,12 @@ export default function ImagesPage() {
       </div>
       <div>
         <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "var(--text-muted)", marginBottom: 6 }}>OR UPLOAD FILE</div>
-        <input ref={r} type="file" accept="image/*" style={{ display: "none" }} onChange={e => { if (e.target.files?.[0]) upload(e.target.files[0], u => set({ ...f, url: u })); }} />
-        <button onClick={() => r.current?.click()} disabled={uploading} style={{ ...btnS, width: "100%", textAlign: "center" as const }}>
-          {uploading ? "Uploading..." : "📁 Choose File"}
-        </button>
+        <label style={{ display: "block", width: "100%" }}>
+          <input type="file" accept="image/*" style={{ display: "none" }} onChange={e => { if (e.target.files?.[0]) upload(e.target.files[0], u => set({ ...f, url: u })); }} />
+          <span style={{ ...btnS, display: "block", textAlign: "center", cursor: "pointer" }}>
+            {uploading ? "Uploading..." : "📁 Choose File"}
+          </span>
+        </label>
       </div>
       <div>
         <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "var(--text-muted)", marginBottom: 6 }}>Description</div>
@@ -114,6 +114,19 @@ export default function ImagesPage() {
 
   const filtered = images.filter(i => i.url.toLowerCase().includes(search.toLowerCase()) || (i.image_description ?? "").toLowerCase().includes(search.toLowerCase()));
 
+  const Modal = ({ title, children, onCancel, onSave, saveLabel }: { title: string; children: React.ReactNode; onCancel: () => void; onSave: () => void; saveLabel: string }) => (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ background: "var(--surface)", border: "1px solid var(--border)", padding: 40, width: 540, maxHeight: "90vh", overflowY: "auto" }}>
+        <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 24, fontWeight: 700, marginBottom: 24, color: "var(--text)" }}>{title}</div>
+        {children}
+        <div style={{ display: "flex", gap: 12, justifyContent: "flex-end", marginTop: 24 }}>
+          <button onClick={onCancel} style={btnS}>Cancel</button>
+          <button onClick={onSave} disabled={saving} style={btnP}>{saving ? "Saving..." : saveLabel}</button>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div>
       {toast && <div style={{ position: "fixed", top: 24, right: 24, zIndex: 1000, background: toast.ok ? "rgba(0,212,170,0.15)" : "rgba(255,71,87,0.15)", border: `1px solid ${toast.ok ? "var(--accent3)" : "var(--accent2)"}`, color: toast.ok ? "var(--accent3)" : "var(--accent2)", padding: "12px 20px", fontFamily: "'DM Mono', monospace", fontSize: 12, borderRadius: 4 }}>{toast.msg}</div>}
@@ -130,29 +143,15 @@ export default function ImagesPage() {
       </div>
 
       {showCreate && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <div style={{ background: "var(--surface)", border: "1px solid var(--border)", padding: 40, width: 540, maxHeight: "90vh", overflowY: "auto" }}>
-            <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 24, fontWeight: 700, marginBottom: 24, color: "var(--text)" }}>Create Image</div>
-            <Fields f={cform} set={setCform} ref={cRef} />
-            <div style={{ display: "flex", gap: 12, justifyContent: "flex-end", marginTop: 24 }}>
-              <button onClick={() => setShowCreate(false)} style={btnS}>Cancel</button>
-              <button onClick={create} disabled={saving} style={btnP}>{saving ? "Creating..." : "Create"}</button>
-            </div>
-          </div>
-        </div>
+        <Modal title="Create Image" onCancel={() => setShowCreate(false)} onSave={create} saveLabel="Create">
+          <FormFields f={cform} set={setCform} isCreate={true} />
+        </Modal>
       )}
 
       {editId && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <div style={{ background: "var(--surface)", border: "1px solid var(--border)", padding: 40, width: 540, maxHeight: "90vh", overflowY: "auto" }}>
-            <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 24, fontWeight: 700, marginBottom: 24, color: "var(--text)" }}>Edit Image</div>
-            <Fields f={form} set={setForm} ref={eRef} />
-            <div style={{ display: "flex", gap: 12, justifyContent: "flex-end", marginTop: 24 }}>
-              <button onClick={() => setEditId(null)} style={btnS}>Cancel</button>
-              <button onClick={save} disabled={saving} style={btnP}>{saving ? "Saving..." : "Save"}</button>
-            </div>
-          </div>
-        </div>
+        <Modal title="Edit Image" onCancel={() => setEditId(null)} onSave={save} saveLabel="Save">
+          <FormFields f={form} set={setForm} isCreate={false} />
+        </Modal>
       )}
 
       {delId && (

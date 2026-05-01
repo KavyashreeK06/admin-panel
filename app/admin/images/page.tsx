@@ -110,7 +110,7 @@ export default function ImagesPage() {
     </div>
   );
 
-  const filtered = images.filter(i => i.url.toLowerCase().includes(search.toLowerCase()) || (i.image_description ?? "").toLowerCase().includes(search.toLowerCase()));
+  const filtered = images.filter(i => i.url?.toLowerCase().includes(search.toLowerCase()) || (i.image_description ?? "").toLowerCase().includes(search.toLowerCase()));
 
   return (
     <div>

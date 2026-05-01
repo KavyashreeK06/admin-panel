@@ -78,7 +78,7 @@ export default function ImagesPage() {
     msg("Deleted"); setDelId(null); load();
   };
 
-  const FormFields = ({ f, set, isCreate }: { f: typeof blank; set: (x: typeof blank) => void; isCreate: boolean }) => (
+  const FormFields = ({ f, set }: { f: typeof blank; set: (x: typeof blank) => void }) => (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <div>
         <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "var(--text-muted)", marginBottom: 6 }}>URL *</div>
@@ -86,11 +86,9 @@ export default function ImagesPage() {
       </div>
       <div>
         <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "var(--text-muted)", marginBottom: 6 }}>OR UPLOAD FILE</div>
-        <label style={{ display: "block", width: "100%" }}>
+        <label style={{ display: "block" }}>
           <input type="file" accept="image/*" style={{ display: "none" }} onChange={e => { if (e.target.files?.[0]) upload(e.target.files[0], u => set({ ...f, url: u })); }} />
-          <span style={{ ...btnS, display: "block", textAlign: "center", cursor: "pointer" }}>
-            {uploading ? "Uploading..." : "📁 Choose File"}
-          </span>
+          <span style={{ ...btnS, display: "block", textAlign: "center" as const, cursor: "pointer" }}>{uploading ? "Uploading..." : "📁 Choose File"}</span>
         </label>
       </div>
       <div>
@@ -114,19 +112,6 @@ export default function ImagesPage() {
 
   const filtered = images.filter(i => i.url.toLowerCase().includes(search.toLowerCase()) || (i.image_description ?? "").toLowerCase().includes(search.toLowerCase()));
 
-  const Modal = ({ title, children, onCancel, onSave, saveLabel }: { title: string; children: React.ReactNode; onCancel: () => void; onSave: () => void; saveLabel: string }) => (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <div style={{ background: "var(--surface)", border: "1px solid var(--border)", padding: 40, width: 540, maxHeight: "90vh", overflowY: "auto" }}>
-        <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 24, fontWeight: 700, marginBottom: 24, color: "var(--text)" }}>{title}</div>
-        {children}
-        <div style={{ display: "flex", gap: 12, justifyContent: "flex-end", marginTop: 24 }}>
-          <button onClick={onCancel} style={btnS}>Cancel</button>
-          <button onClick={onSave} disabled={saving} style={btnP}>{saving ? "Saving..." : saveLabel}</button>
-        </div>
-      </div>
-    </div>
-  );
-
   return (
     <div>
       {toast && <div style={{ position: "fixed", top: 24, right: 24, zIndex: 1000, background: toast.ok ? "rgba(0,212,170,0.15)" : "rgba(255,71,87,0.15)", border: `1px solid ${toast.ok ? "var(--accent3)" : "var(--accent2)"}`, color: toast.ok ? "var(--accent3)" : "var(--accent2)", padding: "12px 20px", fontFamily: "'DM Mono', monospace", fontSize: 12, borderRadius: 4 }}>{toast.msg}</div>}
@@ -143,15 +128,29 @@ export default function ImagesPage() {
       </div>
 
       {showCreate && (
-        <Modal title="Create Image" onCancel={() => setShowCreate(false)} onSave={create} saveLabel="Create">
-          <FormFields f={cform} set={setCform} isCreate={true} />
-        </Modal>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ background: "var(--surface)", border: "1px solid var(--border)", padding: 40, width: 540, maxHeight: "90vh", overflowY: "auto" }}>
+            <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 24, fontWeight: 700, marginBottom: 24, color: "var(--text)" }}>Create Image</div>
+            <FormFields f={cform} set={setCform} />
+            <div style={{ display: "flex", gap: 12, justifyContent: "flex-end", marginTop: 24 }}>
+              <button onClick={() => setShowCreate(false)} style={btnS}>Cancel</button>
+              <button onClick={create} disabled={saving} style={btnP}>{saving ? "Creating..." : "Create"}</button>
+            </div>
+          </div>
+        </div>
       )}
 
       {editId && (
-        <Modal title="Edit Image" onCancel={() => setEditId(null)} onSave={save} saveLabel="Save">
-          <FormFields f={form} set={setForm} isCreate={false} />
-        </Modal>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ background: "var(--surface)", border: "1px solid var(--border)", padding: 40, width: 540, maxHeight: "90vh", overflowY: "auto" }}>
+            <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 24, fontWeight: 700, marginBottom: 24, color: "var(--text)" }}>Edit Image</div>
+            <FormFields f={form} set={setForm} />
+            <div style={{ display: "flex", gap: 12, justifyContent: "flex-end", marginTop: 24 }}>
+              <button onClick={() => setEditId(null)} style={btnS}>Cancel</button>
+              <button onClick={save} disabled={saving} style={btnP}>{saving ? "Saving..." : "Save"}</button>
+            </div>
+          </div>
+        </div>
       )}
 
       {delId && (
@@ -195,7 +194,7 @@ export default function ImagesPage() {
                 </div>
               </div>
             ))}
-            {filtered.length === 0 && <div style={{ background: "var(--surface)", padding: "60px 24px", textAlign: "center", fontFamily: "'DM Mono', monospace", fontSize: 12, color: "var(--text-muted)", gridColumn: "1/-1" }}>No images yet</div>}
+            {filtered.length === 0 && <div style={{ background: "var(--surface)", padding: "60px 24px", textAlign: "center", fontFamily: "'DM Mono', monospace", fontSize: 12, color: "var(--text-muted)", gridColumn: "1/-1" }}>No images yet — click + New Image to add one</div>}
           </div>
           <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "var(--text-dim)", marginTop: 10 }}>{filtered.length} images</div>
         </>

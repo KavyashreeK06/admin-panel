@@ -1,3 +1,4 @@
+import type React from "react";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import AdminNav from "@/components/AdminNav";

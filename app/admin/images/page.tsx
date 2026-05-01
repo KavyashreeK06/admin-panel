@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 
-interface Image {
+interface Img {
   id: string;
   url: string;
   is_public: boolean;
@@ -10,248 +10,195 @@ interface Image {
   additional_context: string | null;
   image_description: string | null;
   created_datetime_utc: string;
-  profile_id: string | null;
 }
 
 const supabase = createClient();
-const inputStyle = { background: "var(--surface2)", border: "1px solid var(--border)", color: "var(--text)", borderRadius: 4, padding: "8px 12px", fontSize: 13, width: "100%", outline: "none", fontFamily: "'DM Sans', sans-serif" } as const;
-const btnPrimary = { padding: "10px 20px", background: "var(--accent)", color: "#0a0a0f", fontFamily: "'DM Mono', monospace", fontSize: 12, fontWeight: 500, cursor: "pointer", border: "none", letterSpacing: "0.05em", whiteSpace: "nowrap" } as const;
-const btnSecondary = { padding: "7px 14px", background: "transparent", color: "var(--text-muted)", fontFamily: "'DM Mono', monospace", fontSize: 11, cursor: "pointer", border: "1px solid var(--border)", letterSpacing: "0.05em" } as const;
-
-type FormState = { url: string; is_public: boolean; is_common_use: boolean; additional_context: string; image_description: string };
-const emptyForm: FormState = { url: "", is_public: true, is_common_use: false, additional_context: "", image_description: "" };
+const inp = { background: "var(--surface2)", border: "1px solid var(--border)", color: "var(--text)", borderRadius: 4, padding: "8px 12px", fontSize: 13, width: "100%", outline: "none", fontFamily: "'DM Sans', sans-serif" } as const;
+const btnP = { padding: "10px 20px", background: "var(--accent)", color: "#0a0a0f", fontFamily: "'DM Mono', monospace", fontSize: 12, fontWeight: 500, cursor: "pointer", border: "none", letterSpacing: "0.05em" } as const;
+const btnS = { padding: "7px 14px", background: "transparent", color: "var(--text-muted)", fontFamily: "'DM Mono', monospace", fontSize: 11, cursor: "pointer", border: "1px solid var(--border)" } as const;
+const blank = { url: "", is_public: true, is_common_use: false, additional_context: "", image_description: "" };
 
 export default function ImagesPage() {
-  const [images, setImages] = useState<Image[]>([]);
+  const [images, setImages] = useState<Img[]>([]);
   const [loading, setLoading] = useState(true);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState<FormState>(emptyForm);
+  const [editId, setEditId] = useState<string | null>(null);
+  const [form, setForm] = useState(blank);
   const [showCreate, setShowCreate] = useState(false);
-  const [createForm, setCreateForm] = useState<FormState>(emptyForm);
+  const [cform, setCform] = useState(blank);
   const [saving, setSaving] = useState(false);
-  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
-  const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
+  const [delId, setDelId] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
   const [search, setSearch] = useState("");
   const [uploading, setUploading] = useState(false);
-  const createFileRef = useRef<HTMLInputElement>(null);
-  const editFileRef = useRef<HTMLInputElement>(null);
+  const cRef = useRef<HTMLInputElement>(null);
+  const eRef = useRef<HTMLInputElement>(null);
 
-  const showToast = (msg: string, type: "success" | "error" = "success") => {
-    setToast({ msg, type });
-    setTimeout(() => setToast(null), 3500);
-  };
+  const msg = (m: string, ok = true) => { setToast({ msg: m, ok }); setTimeout(() => setToast(null), 3500); };
 
-  const fetchImages = useCallback(async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     const { data, error } = await supabase.from("images").select("*").order("created_datetime_utc", { ascending: false });
-    if (error) showToast(error.message, "error");
-    else setImages(data ?? []);
+    if (error) msg(error.message, false); else setImages(data ?? []);
     setLoading(false);
   }, []);
 
-  useEffect(() => { fetchImages(); }, [fetchImages]);
+  useEffect(() => { load(); }, [load]);
 
-  const handleUpload = async (file: File, onDone: (url: string) => void) => {
+  const upload = async (file: File, set: (u: string) => void) => {
     setUploading(true);
-    try {
-      const ext = file.name.split(".").pop();
-      const path = `public/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-      const { error: uploadError } = await supabase.storage.from("images").upload(path, file);
-      if (uploadError) { showToast(uploadError.message, "error"); setUploading(false); return; }
-      const { data: { publicUrl } } = supabase.storage.from("images").getPublicUrl(path);
-      onDone(publicUrl);
-      showToast("File uploaded — URL filled in");
-    } catch (e) {
-      showToast(String(e), "error");
-    }
+    const ext = file.name.split(".").pop();
+    const path = `public/${Date.now()}.${ext}`;
+    const { error } = await supabase.storage.from("images").upload(path, file);
+    if (error) { msg(error.message, false); setUploading(false); return; }
+    const { data: { publicUrl } } = supabase.storage.from("images").getPublicUrl(path);
+    set(publicUrl);
+    msg("Uploaded — URL filled in");
     setUploading(false);
   };
 
-  const handleCreate = async () => {
-    if (!createForm.url.trim()) return showToast("URL is required", "error");
+  const create = async () => {
+    if (!cform.url.trim()) return msg("URL required", false);
     setSaving(true);
-    const { error } = await supabase.from("images").insert({
-      url: createForm.url.trim(),
-      is_public: createForm.is_public,
-      is_common_use: createForm.is_common_use,
-      additional_context: createForm.additional_context || null,
-      image_description: createForm.image_description || null,
-    });
+    const { error } = await supabase.from("images").insert({ url: cform.url.trim(), is_public: cform.is_public, is_common_use: cform.is_common_use, additional_context: cform.additional_context || null, image_description: cform.image_description || null });
     setSaving(false);
-    if (error) return showToast(error.message, "error");
-    showToast("Image created");
-    setShowCreate(false);
-    setCreateForm(emptyForm);
-    fetchImages();
+    if (error) return msg(error.message, false);
+    msg("Created"); setShowCreate(false); setCform(blank); load();
   };
 
-  const handleSave = async () => {
-    if (!editingId) return;
+  const save = async () => {
+    if (!editId) return;
     setSaving(true);
-    const { error } = await supabase.from("images").update({
-      url: editForm.url,
-      is_public: editForm.is_public,
-      is_common_use: editForm.is_common_use,
-      additional_context: editForm.additional_context || null,
-      image_description: editForm.image_description || null,
-    }).eq("id", editingId);
+    const { error } = await supabase.from("images").update({ url: form.url, is_public: form.is_public, is_common_use: form.is_common_use, additional_context: form.additional_context || null, image_description: form.image_description || null }).eq("id", editId);
     setSaving(false);
-    if (error) return showToast(error.message, "error");
-    showToast("Image updated");
-    setEditingId(null);
-    fetchImages();
+    if (error) return msg(error.message, false);
+    msg("Saved"); setEditId(null); load();
   };
 
-  const handleDelete = async (id: string) => {
+  const del = async (id: string) => {
     const { error } = await supabase.from("images").delete().eq("id", id);
-    if (error) return showToast(error.message, "error");
-    showToast("Deleted");
-    setDeleteConfirm(null);
-    fetchImages();
+    if (error) return msg(error.message, false);
+    msg("Deleted"); setDelId(null); load();
   };
 
-  const Fields = ({ form, setForm, fileRef }: { form: FormState; setForm: (f: FormState) => void; fileRef: React.RefObject<HTMLInputElement | null> }) => (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+  const Fields = ({ f, set, ref: r }: { f: typeof blank; set: (x: typeof blank) => void; ref: React.RefObject<HTMLInputElement | null> }) => (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <div>
-        <label style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "var(--text-muted)", letterSpacing: "0.1em", display: "block", marginBottom: 6 }}>URL *</label>
-        <input style={inputStyle} value={form.url} onChange={e => setForm({ ...form, url: e.target.value })} placeholder="https://..." />
+        <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "var(--text-muted)", marginBottom: 6 }}>URL *</div>
+        <input style={inp} value={f.url} onChange={e => set({ ...f, url: e.target.value })} placeholder="https://..." />
       </div>
       <div>
-        <label style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "var(--text-muted)", letterSpacing: "0.1em", display: "block", marginBottom: 6 }}>OR UPLOAD A FILE</label>
-        <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={e => { if (e.target.files?.[0]) handleUpload(e.target.files[0], url => setForm({ ...form, url })); }} />
-        <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading} style={{ ...btnSecondary, width: "100%", textAlign: "center" }}>
-          {uploading ? "Uploading..." : "📁  Choose File to Upload"}
+        <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "var(--text-muted)", marginBottom: 6 }}>OR UPLOAD FILE</div>
+        <input ref={r} type="file" accept="image/*" style={{ display: "none" }} onChange={e => { if (e.target.files?.[0]) upload(e.target.files[0], u => set({ ...f, url: u })); }} />
+        <button onClick={() => r.current?.click()} disabled={uploading} style={{ ...btnS, width: "100%", textAlign: "center" as const }}>
+          {uploading ? "Uploading..." : "📁 Choose File"}
         </button>
       </div>
       <div>
-        <label style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "var(--text-muted)", letterSpacing: "0.1em", display: "block", marginBottom: 6 }}>Description</label>
-        <textarea style={{ ...inputStyle, minHeight: 70, resize: "vertical" }} value={form.image_description} onChange={e => setForm({ ...form, image_description: e.target.value })} />
+        <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "var(--text-muted)", marginBottom: 6 }}>Description</div>
+        <textarea style={{ ...inp, minHeight: 70, resize: "vertical" as const }} value={f.image_description ?? ""} onChange={e => set({ ...f, image_description: e.target.value })} />
       </div>
       <div>
-        <label style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "var(--text-muted)", letterSpacing: "0.1em", display: "block", marginBottom: 6 }}>Additional Context</label>
-        <textarea style={{ ...inputStyle, minHeight: 60, resize: "vertical" }} value={form.additional_context} onChange={e => setForm({ ...form, additional_context: e.target.value })} />
+        <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "var(--text-muted)", marginBottom: 6 }}>Additional Context</div>
+        <textarea style={{ ...inp, minHeight: 50, resize: "vertical" as const }} value={f.additional_context ?? ""} onChange={e => set({ ...f, additional_context: e.target.value })} />
       </div>
-      <div style={{ display: "flex", gap: 24 }}>
-        {(["is_public", "is_common_use"] as const).map(key => (
-          <label key={key} style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontFamily: "'DM Mono', monospace", fontSize: 12, color: "var(--text-muted)" }}>
-            <input type="checkbox" checked={form[key]} onChange={e => setForm({ ...form, [key]: e.target.checked })} style={{ width: "auto", accentColor: "var(--accent)" }} />
-            {key === "is_public" ? "Public" : "Common Use"}
+      <div style={{ display: "flex", gap: 20 }}>
+        {(["is_public", "is_common_use"] as const).map(k => (
+          <label key={k} style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontFamily: "'DM Mono', monospace", fontSize: 12, color: "var(--text-muted)" }}>
+            <input type="checkbox" checked={f[k]} onChange={e => set({ ...f, [k]: e.target.checked })} style={{ width: "auto", accentColor: "var(--accent)" }} />
+            {k === "is_public" ? "Public" : "Common Use"}
           </label>
         ))}
       </div>
     </div>
   );
 
-  const filtered = images.filter(img =>
-    img.url.toLowerCase().includes(search.toLowerCase()) ||
-    (img.image_description ?? "").toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = images.filter(i => i.url.toLowerCase().includes(search.toLowerCase()) || (i.image_description ?? "").toLowerCase().includes(search.toLowerCase()));
 
   return (
     <div>
-      {toast && (
-        <div style={{ position: "fixed", top: 24, right: 24, zIndex: 1000, background: toast.type === "success" ? "rgba(0,212,170,0.15)" : "rgba(255,71,87,0.15)", border: `1px solid ${toast.type === "success" ? "var(--accent3)" : "var(--accent2)"}`, color: toast.type === "success" ? "var(--accent3)" : "var(--accent2)", padding: "12px 20px", fontFamily: "'DM Mono', monospace", fontSize: 12, borderRadius: 4 }}>
-          {toast.msg}
-        </div>
-      )}
+      {toast && <div style={{ position: "fixed", top: 24, right: 24, zIndex: 1000, background: toast.ok ? "rgba(0,212,170,0.15)" : "rgba(255,71,87,0.15)", border: `1px solid ${toast.ok ? "var(--accent3)" : "var(--accent2)"}`, color: toast.ok ? "var(--accent3)" : "var(--accent2)", padding: "12px 20px", fontFamily: "'DM Mono', monospace", fontSize: 12, borderRadius: 4 }}>{toast.msg}</div>}
 
       <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 32 }}>
         <div>
           <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: "var(--accent)", letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: 8 }}>CRUD</div>
           <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 42, fontWeight: 900, color: "var(--text)", lineHeight: 1 }}>Images</h1>
         </div>
-        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-          <input placeholder="Search images..." value={search} onChange={e => setSearch(e.target.value)} style={{ ...inputStyle, width: 220 }} />
-          <button onClick={() => { setCreateForm(emptyForm); setShowCreate(true); }} style={btnPrimary}>+ New Image</button>
+        <div style={{ display: "flex", gap: 12 }}>
+          <input placeholder="Search..." value={search} onChange={e => setSearch(e.target.value)} style={{ ...inp, width: 200 }} />
+          <button onClick={() => { setCform(blank); setShowCreate(true); }} style={btnP}>+ New Image</button>
         </div>
       </div>
 
       {showCreate && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <div style={{ background: "var(--surface)", border: "1px solid var(--border)", padding: 40, width: 560, maxHeight: "90vh", overflowY: "auto" }}>
-            <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 24, fontWeight: 700, marginBottom: 28, color: "var(--text)" }}>Create Image</div>
-            <Fields form={createForm} setForm={setCreateForm} fileRef={createFileRef} />
+          <div style={{ background: "var(--surface)", border: "1px solid var(--border)", padding: 40, width: 540, maxHeight: "90vh", overflowY: "auto" }}>
+            <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 24, fontWeight: 700, marginBottom: 24, color: "var(--text)" }}>Create Image</div>
+            <Fields f={cform} set={setCform} ref={cRef} />
             <div style={{ display: "flex", gap: 12, justifyContent: "flex-end", marginTop: 24 }}>
-              <button onClick={() => setShowCreate(false)} style={btnSecondary}>Cancel</button>
-              <button onClick={handleCreate} disabled={saving} style={btnPrimary}>{saving ? "Creating..." : "Create Image"}</button>
+              <button onClick={() => setShowCreate(false)} style={btnS}>Cancel</button>
+              <button onClick={create} disabled={saving} style={btnP}>{saving ? "Creating..." : "Create"}</button>
             </div>
           </div>
         </div>
       )}
 
-      {editingId && (
+      {editId && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <div style={{ background: "var(--surface)", border: "1px solid var(--border)", padding: 40, width: 560, maxHeight: "90vh", overflowY: "auto" }}>
-            <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 24, fontWeight: 700, marginBottom: 28, color: "var(--text)" }}>Edit Image</div>
-            <Fields form={editForm} setForm={setEditForm} fileRef={editFileRef} />
+          <div style={{ background: "var(--surface)", border: "1px solid var(--border)", padding: 40, width: 540, maxHeight: "90vh", overflowY: "auto" }}>
+            <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 24, fontWeight: 700, marginBottom: 24, color: "var(--text)" }}>Edit Image</div>
+            <Fields f={form} set={setForm} ref={eRef} />
             <div style={{ display: "flex", gap: 12, justifyContent: "flex-end", marginTop: 24 }}>
-              <button onClick={() => setEditingId(null)} style={btnSecondary}>Cancel</button>
-              <button onClick={handleSave} disabled={saving} style={btnPrimary}>{saving ? "Saving..." : "Save Changes"}</button>
+              <button onClick={() => setEditId(null)} style={btnS}>Cancel</button>
+              <button onClick={save} disabled={saving} style={btnP}>{saving ? "Saving..." : "Save"}</button>
             </div>
           </div>
         </div>
       )}
 
-      {deleteConfirm && (
+      {delId && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <div style={{ background: "var(--surface)", border: "1px solid var(--accent2)", padding: 40, width: 400, textAlign: "center" }}>
-            <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, fontWeight: 700, marginBottom: 16, color: "var(--text)" }}>Delete Image?</div>
-            <p style={{ color: "var(--text-muted)", fontFamily: "'DM Mono', monospace", fontSize: 12, marginBottom: 28 }}>This cannot be undone.</p>
+          <div style={{ background: "var(--surface)", border: "1px solid var(--accent2)", padding: 40, width: 380, textAlign: "center" }}>
+            <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, fontWeight: 700, marginBottom: 12, color: "var(--text)" }}>Delete Image?</div>
+            <p style={{ color: "var(--text-muted)", fontFamily: "'DM Mono', monospace", fontSize: 12, marginBottom: 24 }}>This cannot be undone.</p>
             <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
-              <button onClick={() => setDeleteConfirm(null)} style={btnSecondary}>Cancel</button>
-              <button onClick={() => handleDelete(deleteConfirm)} style={{ ...btnSecondary, background: "var(--accent2)", color: "#fff", border: "none" }}>Delete</button>
+              <button onClick={() => setDelId(null)} style={btnS}>Cancel</button>
+              <button onClick={() => del(delId)} style={{ ...btnS, background: "var(--accent2)", color: "#fff", border: "none" }}>Delete</button>
             </div>
           </div>
         </div>
       )}
 
       {loading ? (
-        <div style={{ textAlign: "center", padding: 80, fontFamily: "'DM Mono', monospace", fontSize: 12, color: "var(--text-muted)" }}>Loading images...</div>
+        <div style={{ textAlign: "center", padding: 80, fontFamily: "'DM Mono', monospace", fontSize: 12, color: "var(--text-muted)" }}>Loading...</div>
       ) : (
         <>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 1, background: "var(--border)" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 1, background: "var(--border)" }}>
             {filtered.map(img => (
-              <div key={img.id} style={{ background: "var(--surface)", overflow: "hidden" }}>
-                <div style={{ height: 180, background: "var(--surface2)", overflow: "hidden", position: "relative" }}>
+              <div key={img.id} style={{ background: "var(--surface)" }}>
+                <div style={{ height: 160, background: "var(--surface2)", position: "relative", overflow: "hidden" }}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={img.url} alt={img.image_description ?? ""} style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
-                  <div style={{ position: "absolute", top: 8, right: 8, display: "flex", gap: 4 }}>
-                    {img.is_public && <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 8, padding: "2px 6px", background: "rgba(0,212,170,0.9)", color: "#0a0a0f" }}>PUBLIC</span>}
-                    {img.is_common_use && <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 8, padding: "2px 6px", background: "rgba(232,255,71,0.9)", color: "#0a0a0f" }}>COMMON</span>}
+                  <img src={img.url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                  <div style={{ position: "absolute", top: 6, right: 6, display: "flex", gap: 3 }}>
+                    {img.is_public && <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 8, padding: "2px 5px", background: "rgba(0,212,170,0.9)", color: "#000" }}>PUB</span>}
+                    {img.is_common_use && <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 8, padding: "2px 5px", background: "rgba(232,255,71,0.9)", color: "#000" }}>COM</span>}
                   </div>
                 </div>
-                <div style={{ padding: 16 }}>
-                  <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "var(--text-muted)", marginBottom: 6, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{img.url}</div>
-                  {img.image_description && <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 10, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{img.image_description}</div>}
-                  <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "var(--text-dim)", marginBottom: 12 }}>
-                    {new Date(img.created_datetime_utc).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                  </div>
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <button
-                      onClick={() => { setEditingId(img.id); setEditForm({ url: img.url, is_public: img.is_public, is_common_use: img.is_common_use, additional_context: img.additional_context ?? "", image_description: img.image_description ?? "" }); }}
-                      style={{ flex: 1, padding: "7px", background: "var(--surface2)", border: "1px solid var(--border)", color: "var(--text-muted)", fontFamily: "'DM Mono', monospace", fontSize: 10, cursor: "pointer", transition: "all 0.15s" }}
-                      onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--accent)"; e.currentTarget.style.color = "var(--accent)"; }}
-                      onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.color = "var(--text-muted)"; }}>
-                      EDIT
-                    </button>
-                    <button
-                      onClick={() => setDeleteConfirm(img.id)}
-                      style={{ flex: 1, padding: "7px", background: "transparent", border: "1px solid var(--border)", color: "var(--text-dim)", fontFamily: "'DM Mono', monospace", fontSize: 10, cursor: "pointer", transition: "all 0.15s" }}
-                      onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--accent2)"; e.currentTarget.style.color = "var(--accent2)"; }}
-                      onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.color = "var(--text-dim)"; }}>
-                      DELETE
-                    </button>
+                <div style={{ padding: 14 }}>
+                  <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "var(--text-muted)", marginBottom: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{img.url}</div>
+                  {img.image_description && <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 8, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{img.image_description}</div>}
+                  <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "var(--text-dim)", marginBottom: 10 }}>{new Date(img.created_datetime_utc).toLocaleDateString()}</div>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <button onClick={() => { setEditId(img.id); setForm({ url: img.url, is_public: img.is_public, is_common_use: img.is_common_use, additional_context: img.additional_context ?? "", image_description: img.image_description ?? "" }); }}
+                      style={{ flex: 1, padding: 6, background: "var(--surface2)", border: "1px solid var(--border)", color: "var(--text-muted)", fontFamily: "'DM Mono', monospace", fontSize: 9, cursor: "pointer" }}>EDIT</button>
+                    <button onClick={() => setDelId(img.id)}
+                      style={{ flex: 1, padding: 6, background: "transparent", border: "1px solid var(--border)", color: "var(--text-dim)", fontFamily: "'DM Mono', monospace", fontSize: 9, cursor: "pointer" }}>DEL</button>
                   </div>
                 </div>
               </div>
             ))}
-            {filtered.length === 0 && (
-              <div style={{ background: "var(--surface)", padding: "80px 24px", textAlign: "center", fontFamily: "'DM Mono', monospace", fontSize: 12, color: "var(--text-muted)", gridColumn: "1/-1" }}>
-                {search ? "No images match your search" : "No images yet — create one above"}
-              </div>
-            )}
+            {filtered.length === 0 && <div style={{ background: "var(--surface)", padding: "60px 24px", textAlign: "center", fontFamily: "'DM Mono', monospace", fontSize: 12, color: "var(--text-muted)", gridColumn: "1/-1" }}>No images yet</div>}
           </div>
-          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "var(--text-dim)", marginTop: 12 }}>{filtered.length} images</div>
+          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "var(--text-dim)", marginTop: 10 }}>{filtered.length} images</div>
         </>
       )}
     </div>

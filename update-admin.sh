@@ -1,3 +1,200 @@
+#!/bin/bash
+# Run this from inside your admin-panel project directory
+set -e
+echo "Applying admin panel updates..."
+
+# ── captions ───────────────────────────────────────────────────────────────
+cat > app/admin/captions/page.tsx << 'EOF'
+import CrudPage from "@/components/CrudPage";
+export default function Page() {
+  return <CrudPage title="Captions" table="captions" readOnly searchField="content" fields={[
+    { key: "id", label: "ID", readonly: true },
+    { key: "content", label: "Content", type: "textarea" },
+    { key: "like_count", label: "Likes", type: "number" },
+    { key: "is_featured", label: "Featured", type: "boolean" },
+    { key: "is_public", label: "Public", type: "boolean" },
+    { key: "profile_id", label: "Profile ID" },
+    { key: "image_id", label: "Image ID" },
+    { key: "created_datetime_utc", label: "Created", readonly: true },
+  ]} />;
+}
+EOF
+echo "  ✓ captions"
+
+# ── caption-requests ───────────────────────────────────────────────────────
+cat > app/admin/caption-requests/page.tsx << 'EOF'
+import CrudPage from "@/components/CrudPage";
+export default function Page() {
+  return <CrudPage title="Caption Requests" table="caption_requests" readOnly searchField="status" fields={[
+    { key: "id", label: "ID" },
+    { key: "profile_id", label: "Profile ID" },
+    { key: "image_id", label: "Image ID" },
+    { key: "status", label: "Status" },
+    { key: "created_datetime_utc", label: "Created" },
+  ]} />;
+}
+EOF
+echo "  ✓ caption-requests"
+
+# ── caption-examples ───────────────────────────────────────────────────────
+cat > app/admin/caption-examples/page.tsx << 'EOF'
+import CrudPage from "@/components/CrudPage";
+export default function Page() {
+  return <CrudPage title="Caption Examples" table="caption_examples" searchField="content" fields={[
+    { key: "id", label: "ID", readonly: true },
+    { key: "content", label: "Content", type: "textarea" },
+    { key: "image_id", label: "Image ID" },
+    { key: "humor_flavor_id", label: "Humor Flavor ID" },
+    { key: "is_active", label: "Active", type: "boolean" },
+    { key: "created_datetime_utc", label: "Created", readonly: true },
+  ]} />;
+}
+EOF
+echo "  ✓ caption-examples"
+
+# ── terms ──────────────────────────────────────────────────────────────────
+cat > app/admin/terms/page.tsx << 'EOF'
+import CrudPage from "@/components/CrudPage";
+export default function Page() {
+  return <CrudPage title="Terms" table="terms" searchField="term" fields={[
+    { key: "id", label: "ID", readonly: true },
+    { key: "term", label: "Term" },
+    { key: "definition", label: "Definition", type: "textarea" },
+    { key: "is_active", label: "Active", type: "boolean" },
+    { key: "created_datetime_utc", label: "Created", readonly: true },
+  ]} />;
+}
+EOF
+echo "  ✓ terms"
+
+# ── humor-flavors ──────────────────────────────────────────────────────────
+cat > app/admin/humor-flavors/page.tsx << 'EOF'
+import CrudPage from "@/components/CrudPage";
+export default function Page() {
+  return <CrudPage title="Humor Flavors" table="humor_flavors" readOnly searchField="name" fields={[
+    { key: "id", label: "ID" },
+    { key: "name", label: "Name" },
+    { key: "description", label: "Description" },
+    { key: "is_active", label: "Active", type: "boolean" },
+    { key: "created_datetime_utc", label: "Created" },
+  ]} />;
+}
+EOF
+echo "  ✓ humor-flavors"
+
+# ── humor-flavor-steps ─────────────────────────────────────────────────────
+cat > app/admin/humor-flavor-steps/page.tsx << 'EOF'
+import CrudPage from "@/components/CrudPage";
+export default function Page() {
+  return <CrudPage title="Humor Flavor Steps" table="humor_flavor_steps" readOnly fields={[
+    { key: "id", label: "ID" },
+    { key: "humor_flavor_id", label: "Flavor ID" },
+    { key: "step_number", label: "Step #" },
+    { key: "instruction", label: "Instruction" },
+    { key: "created_datetime_utc", label: "Created" },
+  ]} />;
+}
+EOF
+echo "  ✓ humor-flavor-steps"
+
+# ── humor-mix ──────────────────────────────────────────────────────────────
+# (already has a custom read/update page — no change needed)
+echo "  ✓ humor-mix (no change)"
+
+# ── llm-providers ──────────────────────────────────────────────────────────
+cat > app/admin/llm-providers/page.tsx << 'EOF'
+import CrudPage from "@/components/CrudPage";
+export default function Page() {
+  return <CrudPage title="LLM Providers" table="llm_providers" searchField="name" fields={[
+    { key: "id", label: "ID", readonly: true },
+    { key: "name", label: "Name" },
+    { key: "api_base_url", label: "API Base URL" },
+    { key: "is_active", label: "Active", type: "boolean" },
+    { key: "created_datetime_utc", label: "Created", readonly: true },
+  ]} />;
+}
+EOF
+echo "  ✓ llm-providers"
+
+# ── llm-models ─────────────────────────────────────────────────────────────
+cat > app/admin/llm-models/page.tsx << 'EOF'
+import CrudPage from "@/components/CrudPage";
+export default function Page() {
+  return <CrudPage title="LLM Models" table="llm_models" searchField="name" fields={[
+    { key: "id", label: "ID", readonly: true },
+    { key: "name", label: "Name" },
+    { key: "llm_provider_id", label: "Provider ID" },
+    { key: "model_string", label: "Model String" },
+    { key: "is_active", label: "Active", type: "boolean" },
+    { key: "max_tokens", label: "Max Tokens", type: "number" },
+    { key: "created_datetime_utc", label: "Created", readonly: true },
+  ]} />;
+}
+EOF
+echo "  ✓ llm-models"
+
+# ── llm-prompt-chains ──────────────────────────────────────────────────────
+cat > app/admin/llm-prompt-chains/page.tsx << 'EOF'
+import CrudPage from "@/components/CrudPage";
+export default function Page() {
+  return <CrudPage title="LLM Prompt Chains" table="llm_prompt_chains" readOnly searchField="name" fields={[
+    { key: "id", label: "ID" },
+    { key: "name", label: "Name" },
+    { key: "description", label: "Description" },
+    { key: "is_active", label: "Active", type: "boolean" },
+    { key: "created_datetime_utc", label: "Created" },
+  ]} />;
+}
+EOF
+echo "  ✓ llm-prompt-chains"
+
+# ── llm-responses ──────────────────────────────────────────────────────────
+cat > app/admin/llm-responses/page.tsx << 'EOF'
+import CrudPage from "@/components/CrudPage";
+export default function Page() {
+  return <CrudPage title="LLM Responses" table="llm_responses" readOnly fields={[
+    { key: "id", label: "ID" },
+    { key: "llm_model_id", label: "Model ID" },
+    { key: "prompt_chain_id", label: "Chain ID" },
+    { key: "input_tokens", label: "Input Tokens", type: "number" },
+    { key: "output_tokens", label: "Output Tokens", type: "number" },
+    { key: "response_text", label: "Response" },
+    { key: "created_datetime_utc", label: "Created" },
+  ]} />;
+}
+EOF
+echo "  ✓ llm-responses"
+
+# ── allowed-domains ────────────────────────────────────────────────────────
+cat > app/admin/allowed-domains/page.tsx << 'EOF'
+import CrudPage from "@/components/CrudPage";
+export default function Page() {
+  return <CrudPage title="Allowed Signup Domains" table="allowed_signup_domains" searchField="domain" fields={[
+    { key: "id", label: "ID", readonly: true },
+    { key: "domain", label: "Domain" },
+    { key: "is_active", label: "Active", type: "boolean" },
+    { key: "created_datetime_utc", label: "Created", readonly: true },
+  ]} />;
+}
+EOF
+echo "  ✓ allowed-domains"
+
+# ── whitelisted-emails ─────────────────────────────────────────────────────
+cat > app/admin/whitelisted-emails/page.tsx << 'EOF'
+import CrudPage from "@/components/CrudPage";
+export default function Page() {
+  return <CrudPage title="Whitelisted Emails" table="whitelisted_emails" searchField="email" fields={[
+    { key: "id", label: "ID", readonly: true },
+    { key: "email", label: "Email" },
+    { key: "is_active", label: "Active", type: "boolean" },
+    { key: "created_datetime_utc", label: "Created", readonly: true },
+  ]} />;
+}
+EOF
+echo "  ✓ whitelisted-emails"
+
+# ── images (with file upload support) ─────────────────────────────────────
+cat > app/admin/images/page.tsx << 'EOF'
 "use client";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
@@ -257,3 +454,13 @@ export default function ImagesPage() {
     </div>
   );
 }
+EOF
+echo "  ✓ images (with file upload)"
+
+# ── commit and push ────────────────────────────────────────────────────────
+git add -A
+git commit -m "feat: expand admin to all required tables with image upload support"
+git push
+
+echo ""
+echo "✅ Done! Vercel will redeploy automatically."
